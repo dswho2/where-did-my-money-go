@@ -42,6 +42,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Auth
 export const login = async (username: string, password: string): Promise<{ username: string }> => {
+  clearStoredToken() // drop any stale token so it isn't sent with this request
   const res = await request<{ username: string; token: string }>('/api/auth/login/', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
