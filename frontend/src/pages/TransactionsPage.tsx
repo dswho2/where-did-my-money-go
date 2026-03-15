@@ -122,30 +122,55 @@ function EditableRow({
 
   return (
     <div
-      className="flex items-center gap-3 py-2 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-900/40 rounded-sm -mx-1 px-1 transition-colors"
+      className="py-3 sm:py-2 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-900/40 rounded-sm -mx-1 px-2 sm:px-1 transition-colors"
       onClick={() => setEditing(true)}
     >
-      <span className="text-xs text-neutral-600 tabular-nums shrink-0 w-20">{txn.date}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-neutral-200 truncate leading-tight">{txn.merchant || '—'}</p>
-        {txn.description && (
-          <p className="text-xs text-neutral-500 truncate leading-tight">{txn.description}</p>
-        )}
-        {txn.account_name && (
-          <p className="text-xs text-neutral-600 truncate leading-tight">{txn.account_name}</p>
-        )}
+      <div className="flex items-start gap-2 sm:items-center sm:gap-3">
+        {/* Date — desktop only column */}
+        <span className="hidden sm:block text-xs text-neutral-600 tabular-nums shrink-0 w-20">{txn.date}</span>
+
+        {/* Merchant + sub-row on mobile */}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-neutral-200 truncate leading-tight">{txn.merchant || '—'}</p>
+          {txn.description && (
+            <p className="text-xs text-neutral-500 truncate leading-tight">{txn.description}</p>
+          )}
+          {/* Mobile sub-row: date · account · status · category */}
+          <div className="flex items-center gap-2 mt-1 sm:hidden flex-wrap">
+            <span className="text-xs text-neutral-600 tabular-nums">{txn.date}</span>
+            {txn.account_name && (
+              <span className="text-xs text-neutral-600 truncate">· {txn.account_name}</span>
+            )}
+            {txn.status !== 'tracked' && (
+              <span className="text-xs text-neutral-500">{txn.status}</span>
+            )}
+            {txn.category_name && (
+              <CategoryPill name={txn.category_name} color={txn.category_color} />
+            )}
+          </div>
+          {/* Desktop: account name */}
+          {txn.account_name && (
+            <p className="hidden sm:block text-xs text-neutral-600 truncate leading-tight">{txn.account_name}</p>
+          )}
+        </div>
+
+        {/* Status — desktop only */}
+        <span className="hidden sm:block text-xs text-neutral-700 shrink-0 w-14 text-right">
+          {txn.status !== 'tracked' ? txn.status : ''}
+        </span>
+
+        {/* Category — desktop only */}
+        <div className="hidden sm:flex w-24 shrink-0 justify-end">
+          {txn.category_name
+            ? <CategoryPill name={txn.category_name} color={txn.category_color} />
+            : <span className="text-xs text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity">edit</span>}
+        </div>
+
+        {/* Amount — always shown */}
+        <span className={`text-sm font-medium tabular-nums shrink-0 pr-1 sm:pr-0 sm:w-24 text-right ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
+          {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
+        </span>
       </div>
-      <span className="text-xs text-neutral-700 shrink-0 w-14 text-right">
-        {txn.status !== 'tracked' ? txn.status : ''}
-      </span>
-      <div className="w-24 shrink-0 flex justify-end">
-        {txn.category_name
-          ? <CategoryPill name={txn.category_name} color={txn.category_color} />
-          : <span className="text-xs text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity">edit</span>}
-      </div>
-      <span className={`text-sm font-medium tabular-nums w-24 text-right shrink-0 ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
-        {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
-      </span>
     </div>
   )
 }
