@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Account, Category, Enrollment, Transaction
+from .models import Account, Category, Enrollment, Transaction, UserBudgetConfig
 from .serializers import AccountSerializer, CategorySerializer, EnrollmentSerializer, TransactionSerializer
 from . import teller, categorizer
 
@@ -512,6 +512,21 @@ def cron_sync(request):
     for enrollment in Enrollment.objects.all():
         _sync_enrollment(enrollment, synced)
     return Response({'synced': synced[0]})
+
+
+# ---------------------------------------------------------------------------
+# Budget config
+# ---------------------------------------------------------------------------
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def budget_config(request):
+    obj, _ = UserBudgetConfig.objects.get_or_create(user=request.user)
+    if request.method == 'GET':
+        return Response(obj.config)
+    obj.config = request.data
+    obj.save(update_fields=['config', 'updated_at'])
+    return Response(obj.config)
 
 
 # ---------------------------------------------------------------------------

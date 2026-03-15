@@ -133,3 +133,13 @@ export const getSpending = (params: Record<string, string> = {}) => {
 
 export const getDashboard = (month?: string) =>
   request<DashboardData>(`/api/dashboard/${month ? `?month=${month}` : ''}`)
+
+// Budget config
+export const getBudgetConfig = () =>
+  request<Record<string, unknown>>('/api/budget-config/')
+
+export const saveBudgetConfig = (config: Record<string, unknown>) =>
+  request<Record<string, unknown>>('/api/budget-config/', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  })

@@ -52,6 +52,15 @@ class MerchantRule(models.Model):
         return f"{self.merchant_key} → {self.category}"
 
 
+class UserBudgetConfig(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='budget_config')
+    config = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BudgetConfig({self.user})"
+
+
 class Transaction(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name='transactions')
     teller_id = models.CharField(max_length=255, unique=True)

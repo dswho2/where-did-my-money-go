@@ -29,4 +29,7 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/', views.dashboard),
+
+    # Budget config
+    path('budget-config/', views.budget_config),
 ]

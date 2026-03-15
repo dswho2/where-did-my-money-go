@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { getCategories, getSpending } from '../lib/api'
+import { getCategories, getSpending, getBudgetConfig, saveBudgetConfig } from '../lib/api'
 import type { Category } from '../lib/types'
 
 // ---------------------------------------------------------------------------
 // Types & persistence
 // ---------------------------------------------------------------------------
-
-const STORAGE_KEY = 'budget_config_v2'
 
 type PayFrequency = 'weekly' | 'biweekly' | 'semi_monthly' | 'monthly'
 
@@ -34,12 +32,6 @@ const DEFAULTS: BudgetConfig = {
   pre_tax: [], post_tax: [], fixed: [], category_budgets: {},
 }
 
-function loadConfig(): BudgetConfig {
-  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return { ...DEFAULTS, ...JSON.parse(r) } }
-  catch {}
-  return { ...DEFAULTS }
-}
-function saveConfig(c: BudgetConfig) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)) }
 
 // ---------------------------------------------------------------------------
 // Math
@@ -242,12 +234,14 @@ export default function BudgetPage() {
   const now   = new Date()
   const [year, setYear]   = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
-  const [cfg, setCfg]     = useState<BudgetConfig>(loadConfig)
+  const [cfg, setCfg]         = useState<BudgetConfig>(DEFAULTS)
+  const [cfgLoaded, setCfgLoaded] = useState(false)
   const [categories, setCategories]         = useState<Category[]>([])
   const [actuals, setActuals]               = useState<Record<string, number>>({})
   const [loadingActuals, setLoadingActuals] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const monthPickerRef = useRef<HTMLDivElement>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!monthPickerOpen) return
@@ -259,7 +253,25 @@ export default function BudgetPage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [monthPickerOpen])
 
-  useEffect(() => { saveConfig(cfg) }, [cfg])
+  // Load from API on mount
+  useEffect(() => {
+    getBudgetConfig()
+      .then(remote => {
+        setCfg({ ...DEFAULTS, ...(remote as Partial<BudgetConfig>) })
+        setCfgLoaded(true)
+      })
+      .catch(() => setCfgLoaded(true))
+  }, [])
+
+  // Debounced save to API whenever config changes
+  useEffect(() => {
+    if (!cfgLoaded) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveBudgetConfig(cfg as unknown as Record<string, unknown>).catch(() => {})
+    }, 800)
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+  }, [cfg, cfgLoaded])
   useEffect(() => { getCategories().then(setCategories).catch(() => {}) }, [])
   useEffect(() => {
     setLoadingActuals(true)
