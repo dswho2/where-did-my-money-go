@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { getEnrollments, createEnrollment, deleteEnrollment, syncTransactions, updateAccount } from '../lib/api'
 import type { Enrollment, Account } from '../lib/types'
 
@@ -19,6 +20,8 @@ function labelForDays(days: number): string {
 }
 
 export default function AccountsPage() {
+  const { accountTier } = useOutletContext<{ accountTier: string }>()
+  const isDemo = accountTier === 'demo'
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -126,16 +129,16 @@ export default function AccountsPage() {
           {enrollments.length > 0 && (
             <button
               onClick={handleSync}
-              disabled={syncing}
-              className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 rounded hover:text-neutral-200 hover:border-neutral-700 disabled:opacity-50 transition-colors"
+              disabled={syncing || isDemo}
+              className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 rounded hover:text-neutral-200 hover:border-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
           )}
           <button
-            onClick={() => setShowDialog(true)}
-            disabled={connecting}
-            className="px-3 py-1.5 bg-white text-neutral-900 text-xs font-medium rounded hover:bg-neutral-100 disabled:opacity-50 transition-colors"
+            onClick={() => !isDemo && setShowDialog(true)}
+            disabled={connecting || isDemo}
+            className="px-3 py-1.5 bg-white text-neutral-900 text-xs font-medium rounded hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {connecting ? 'Connecting...' : 'Connect bank'}
           </button>
@@ -161,9 +164,9 @@ export default function AccountsPage() {
                 {enrollment.institution_name}
               </p>
               <button
-                onClick={() => handleDisconnect(enrollment.id)}
-                disabled={deletingId === enrollment.id}
-                className="text-xs text-neutral-700 hover:text-red-400 disabled:opacity-50 transition-colors"
+                onClick={() => !isDemo && handleDisconnect(enrollment.id)}
+                disabled={deletingId === enrollment.id || isDemo}
+                className="text-xs text-neutral-700 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {deletingId === enrollment.id ? 'Disconnecting...' : 'Disconnect'}
               </button>

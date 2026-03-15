@@ -51,8 +51,7 @@ export interface Transaction {
   category: number | null
   category_name?: string
   category_color?: string
-  confirmed: boolean
-  declined: boolean
+  status: 'pending' | 'confirmed' | 'declined'
 }
 
 export interface PaginatedTransactions {

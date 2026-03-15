@@ -15,6 +15,7 @@ type AuthState = 'loading' | 'authed' | 'anon'
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>('loading')
+  const [accountTier, setAccountTier] = useState<string>('standard')
 
   useEffect(() => {
     if (!getStoredToken()) {
@@ -22,7 +23,7 @@ export default function App() {
       return
     }
     getMe()
-      .then(() => setAuth('authed'))
+      .then(data => { setAccountTier(data.account_tier); setAuth('authed') })
       .catch(() => setAuth('anon'))
   }, [])
 
@@ -35,13 +36,18 @@ export default function App() {
   }
 
   if (auth === 'anon') {
-    return <LoginPage onLogin={() => setAuth('authed')} />
+    return <LoginPage onLogin={() => {
+      getMe()
+        .then(data => setAccountTier(data.account_tier))
+        .catch(() => {})
+      setAuth('authed')
+    }} />
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout onLogout={() => setAuth('anon')} />}>
+        <Route element={<Layout onLogout={() => setAuth('anon')} accountTier={accountTier} />}>
           <Route index element={<HomePage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="transactions" element={<TransactionsPage />} />

@@ -9,9 +9,17 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Account, Category, Enrollment, Transaction, UserBudgetConfig
+from .models import Account, Category, DEFAULT_CATEGORIES, Enrollment, Transaction, UserBudgetConfig
 from .serializers import AccountSerializer, CategorySerializer, EnrollmentSerializer, TransactionSerializer
 from . import teller, categorizer
+
+
+def _seed_default_categories(user):
+    """Create the standard set of categories for a newly registered user."""
+    Category.objects.bulk_create(
+        [Category(user=user, name=name, color=color) for name, color in DEFAULT_CATEGORIES],
+        ignore_conflicts=True,
+    )
 
 
 def _apply_auto_categorize(transaction):
@@ -19,8 +27,8 @@ def _apply_auto_categorize(transaction):
     try:
         category, should_decline = categorizer.auto_categorize(transaction)
         if should_decline:
-            transaction.declined = True
-            transaction.save(update_fields=['declined'])
+            transaction.status = Transaction.DECLINED
+            transaction.save(update_fields=['status'])
         elif category is not None:
             transaction.category = category
             transaction.save(update_fields=['category'])
@@ -56,7 +64,8 @@ def auth_register(request):
         return Response({'error': 'Username and password required.'}, status=400)
     if User.objects.filter(username=username).exists():
         return Response({'error': 'Username already taken.'}, status=400)
-    User.objects.create_user(username=username, password=password)
+    user = User.objects.create_user(username=username, password=password)
+    _seed_default_categories(user)
     return Response({'username': username}, status=201)
 
 
@@ -87,7 +96,11 @@ def auth_logout(request):
 def auth_me(request):
     if not request.user.is_authenticated:
         return Response({'error': 'Not authenticated.'}, status=401)
-    return Response({'username': request.user.username})
+    is_demo = request.user.groups.filter(name='demo').exists()
+    return Response({
+        'username': request.user.username,
+        'account_tier': 'demo' if is_demo else 'standard',
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +183,7 @@ def enrollment_list_create(request):
                     'amount': t['amount'],
                     'merchant': ((t.get('details') or {}).get('counterparty') or {}).get('name', '') or t.get('description', ''),
                     'description': '',
-                    'confirmed': False,
+                    'status': Transaction.PENDING,
                 },
             )
             if created_txn:
@@ -248,16 +261,16 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.db.models import Count
-        return Category.objects.annotate(
+        return Category.objects.filter(user=self.request.user).annotate(
             usage=Count('transaction')
         ).order_by('-usage', 'name')
 
     def perform_create(self, serializer):
         # Auto-assign a color if the client didn't send one
         if 'color' not in self.request.data:
-            serializer.save(color=next_palette_color())
+            serializer.save(user=self.request.user, color=next_palette_color())
         else:
-            serializer.save()
+            serializer.save(user=self.request.user)
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -267,7 +280,7 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         from django.db.models import Count
-        return Category.objects.annotate(usage=Count('transaction'))
+        return Category.objects.filter(user=self.request.user).annotate(usage=Count('transaction'))
 
 
 # ---------------------------------------------------------------------------
@@ -285,15 +298,12 @@ class TransactionListView(generics.ListAPIView):
         ).select_related('account', 'account__enrollment', 'category')
 
         # Status filter
-        show_declined = self.request.query_params.get('show_declined') == 'true'
-        if not show_declined:
-            qs = qs.filter(declined=False)
-
-        confirmed = self.request.query_params.get('confirmed')
-        if confirmed == 'true':
-            qs = qs.filter(confirmed=True)
-        elif confirmed == 'false':
-            qs = qs.filter(confirmed=False)
+        status_param = self.request.query_params.get('status')
+        if status_param in (Transaction.PENDING, Transaction.CONFIRMED, Transaction.DECLINED):
+            qs = qs.filter(status=status_param)
+        elif status_param != 'all':
+            # Default: hide declined
+            qs = qs.exclude(status=Transaction.DECLINED)
 
         month = self.request.query_params.get('month')  # expects YYYY-MM
         if month:
@@ -383,8 +393,7 @@ class TransactionDetailView(generics.UpdateAPIView):
                 Transaction.objects
                 .filter(
                     account__enrollment__user=self.request.user,
-                    confirmed=False,
-                    declined=False,
+                    status=Transaction.PENDING,
                     category__isnull=True,
                 )
                 .exclude(merchant='')
@@ -453,7 +462,7 @@ def _sync_account(enrollment, remote_acct) -> int:
             amount=t['amount'],
             merchant=((t.get('details') or {}).get('counterparty') or {}).get('name', '') or t.get('description', ''),
             description='',
-            confirmed=False,
+            status=Transaction.PENDING,
         )
         for t in remote_txns
         if t['id'] not in existing_ids
@@ -544,7 +553,7 @@ def spending_summary(request):
     qs = Transaction.objects.filter(
         account__enrollment__user=request.user,
         account__tracked=True,
-        declined=False,
+        status=Transaction.CONFIRMED,
         amount__gt=0,  # positive = expense (charge); negative = refund/credit
     )
 
@@ -641,8 +650,7 @@ def dashboard(request):
     review_count = Transaction.objects.filter(
         account__enrollment__user=user,
         account__tracked=True,
-        confirmed=False,
-        declined=False,
+        status=Transaction.PENDING,
     ).count()
 
     # Selected month bounds
@@ -661,8 +669,7 @@ def dashboard(request):
     base_qs = Transaction.objects.filter(
         account__enrollment__user=user,
         account__tracked=True,
-        confirmed=True,
-        declined=False,
+        status=Transaction.CONFIRMED,
         amount__gt=0,
     )
 

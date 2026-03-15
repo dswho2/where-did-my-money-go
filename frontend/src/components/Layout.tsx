@@ -12,7 +12,7 @@ const nav = [
   { to: '/accounts', label: 'Accounts' },
 ]
 
-export default function Layout({ onLogout }: { onLogout: () => void }) {
+export default function Layout({ onLogout, accountTier }: { onLogout: () => void; accountTier: string }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -103,7 +103,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
       )}
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-5">
-        <Outlet />
+        <Outlet context={{ accountTier }} />
       </main>
     </div>
   )

@@ -27,12 +27,28 @@ class Account(models.Model):
         return f"{self.name} ...{self.last_four}"
 
 
+DEFAULT_CATEGORIES = [
+    ('Groceries',     '#4ade80'),
+    ('Dining',        '#fb923c'),
+    ('Coffee',        '#a78bfa'),
+    ('Transport',     '#38bdf8'),
+    ('Entertainment', '#f472b6'),
+    ('Shopping',      '#facc15'),
+    ('Utilities',     '#94a3b8'),
+    ('Health',        '#34d399'),
+    ('Travel',        '#f87171'),
+    ('Subscriptions', '#818cf8'),
+]
+
+
 class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='categories')
+    name = models.CharField(max_length=100)
     color = models.CharField(max_length=7, default='#818cf8')
 
     class Meta:
         verbose_name_plural = 'categories'
+        unique_together = [('user', 'name')]
 
     def __str__(self):
         return self.name
@@ -69,8 +85,12 @@ class Transaction(models.Model):
     merchant = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
-    confirmed = models.BooleanField(default=False)
-    declined = models.BooleanField(default=False)
+    PENDING = 'pending'
+    CONFIRMED = 'confirmed'
+    DECLINED = 'declined'
+    STATUS_CHOICES = [(PENDING, 'Pending'), (CONFIRMED, 'Confirmed'), (DECLINED, 'Declined')]
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

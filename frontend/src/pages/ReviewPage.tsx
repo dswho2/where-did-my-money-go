@@ -24,7 +24,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     Promise.all([
-      getTransactions({ confirmed: 'false', limit: '500' }),
+      getTransactions({ status: 'pending', limit: '500' }),
       getCategories(),
     ])
       .then(([paginated, cats]) => { setQueue(paginated.results); setCategories(cats) })
@@ -61,7 +61,7 @@ export default function ReviewPage() {
   async function handleConfirm(categoryId: number | null, description: string) {
     const merchant = top?.merchant ?? ''
     await dismiss('right', () =>
-      updateTransaction(top!.id, { category: categoryId, description, confirmed: true })
+      updateTransaction(top!.id, { category: categoryId, description, status: 'confirmed' })
     )
     // Propagate the category to other queue items from the same merchant
     if (categoryId && merchant) {

@@ -21,8 +21,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ['date', 'merchant', 'amount', 'category', 'confirmed', 'account']
-    list_filter = ['confirmed', 'category', 'account']
+    list_display = ['date', 'merchant', 'amount', 'category', 'status', 'account']
+    list_filter = ['status', 'category', 'account']
     list_select_related = ['category', 'account']
     search_fields = ['merchant', 'description']
     date_hierarchy = 'date'

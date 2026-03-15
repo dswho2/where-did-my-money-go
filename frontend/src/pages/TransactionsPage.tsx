@@ -145,7 +145,7 @@ export default function TransactionsPage() {
   const [month, setMonth] = useState<string>(location.state?.month ?? '')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined'>('all')
 
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -174,8 +174,7 @@ export default function TransactionsPage() {
     if (month) params.month = month
     if (categoryFilter) params.category = categoryFilter
     if (accountFilter) params.account = accountFilter
-    if (statusFilter === 'confirmed') params.confirmed = 'true'
-    else if (statusFilter === 'unconfirmed') params.confirmed = 'false'
+    if (statusFilter !== 'all') params.status = statusFilter
 
     Promise.all([getTransactions(params), getCategories(), getAccounts()])
       .then(([paginated, cats, accts]) => {
@@ -218,8 +217,9 @@ export default function TransactionsPage() {
         )}
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} className={selectCls}>
           <option value="all">All</option>
+          <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
-          <option value="unconfirmed">Unconfirmed</option>
+          <option value="declined">Declined</option>
         </select>
         <select value={month} onChange={e => setMonth(e.target.value)} className={selectCls}>
           <option value="">All dates</option>

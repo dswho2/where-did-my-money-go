@@ -43,7 +43,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'teller_id', 'date', 'amount', 'merchant',
             'description', 'category', 'category_name', 'category_color',
-            'confirmed', 'declined', 'account', 'account_name',
+            'status', 'account', 'account_name',
         ]
         read_only_fields = ['teller_id', 'date', 'amount', 'merchant', 'account']
 

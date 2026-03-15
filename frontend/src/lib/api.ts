@@ -62,7 +62,7 @@ export const logout = async (): Promise<void> => {
 }
 
 export const getMe = () =>
-  request<{ username: string }>('/api/auth/me/')
+  request<{ username: string; account_tier: string }>('/api/auth/me/')
 
 // Enrollments
 export const getEnrollments = () => request<Enrollment[]>('/api/enrollments/')
@@ -101,10 +101,10 @@ export const updateTransaction = (id: number, data: Partial<Transaction>) =>
   })
 
 export const confirmTransaction = (id: number) =>
-  updateTransaction(id, { confirmed: true })
+  updateTransaction(id, { status: 'confirmed' })
 
 export const declineTransaction = (id: number) =>
-  updateTransaction(id, { declined: true })
+  updateTransaction(id, { status: 'declined' })
 
 export const createCategory = (name: string, color?: string) =>
   request<Category>('/api/categories/', {
