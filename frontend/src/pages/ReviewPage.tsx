@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getTransactions, getCategories, updateTransaction, declineTransaction } from '../lib/api'
+import { getTransactions, getCategories, updateTransaction, excludeTransaction } from '../lib/api'
 import type { Transaction, Category } from '../lib/types'
 import CategoryInput from '../components/CategoryInput'
 
@@ -24,7 +24,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     Promise.all([
-      getTransactions({ status: 'pending', limit: '500' }),
+      getTransactions({ status: 'unreviewed', limit: '500' }),
       getCategories(),
     ])
       .then(([paginated, cats]) => { setQueue(paginated.results); setCategories(cats) })
@@ -43,25 +43,19 @@ export default function ReviewPage() {
     const topId = top.id
     setSaving(true)
     setExitDir(dir)
-    // Run animation timer and API call in parallel — card is gone when both finish
-    const timer = new Promise(r => setTimeout(r, ANIM_MS))
-    try {
-      await Promise.all([apiCall(), timer])
-    } catch (e) {
-      setExitDir(null)
-      setSaving(false)
-      setError(e instanceof Error ? e.message : 'Request failed.')
-      return
-    }
+    // Wait only for the animation — don't block on the API call
+    await new Promise(r => setTimeout(r, ANIM_MS))
     setQueue(q => q.filter(t => t.id !== topId))
     setExitDir(null)
     setSaving(false)
+    // Fire API in background; show error if it fails but don't undo the card removal
+    apiCall().catch(e => setError(e instanceof Error ? e.message : 'Request failed.'))
   }
 
   async function handleConfirm(categoryId: number | null, description: string) {
     const merchant = top?.merchant ?? ''
     await dismiss('right', () =>
-      updateTransaction(top!.id, { category: categoryId, description, status: 'confirmed' })
+      updateTransaction(top!.id, { category: categoryId, description, status: 'tracked' })
     )
     // Propagate the category to other queue items from the same merchant
     if (categoryId && merchant) {
@@ -74,7 +68,7 @@ export default function ReviewPage() {
   }
 
   function handleDecline() {
-    dismiss('left', () => declineTransaction(top!.id))
+    dismiss('left', () => excludeTransaction(top!.id))
   }
 
   if (loading) return <p className="text-neutral-600 text-sm">Loading...</p>
@@ -211,14 +205,14 @@ function TransactionReviewCard({
             disabled={saving}
             className="flex-1 py-2 bg-neutral-800 border border-neutral-700/60 text-neutral-500 text-xs rounded-lg hover:text-red-400 hover:border-red-900/60 disabled:opacity-40 transition-colors"
           >
-            Decline
+            Exclude
           </button>
           <button
             onClick={() => onConfirm(categoryId, description)}
             disabled={saving}
             className="flex-1 py-2 bg-white text-neutral-900 text-xs font-semibold rounded-lg hover:bg-neutral-100 disabled:opacity-40 transition-colors"
           >
-            {saving ? '...' : 'Confirm'}
+            {saving ? '...' : 'Track'}
           </button>
         </div>
       </div>

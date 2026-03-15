@@ -51,7 +51,7 @@ export interface Transaction {
   category: number | null
   category_name?: string
   category_color?: string
-  status: 'pending' | 'confirmed' | 'declined'
+  status: 'unreviewed' | 'tracked' | 'excluded'
 }
 
 export interface PaginatedTransactions {

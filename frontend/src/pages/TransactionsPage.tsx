@@ -38,6 +38,7 @@ function EditableRow({
   const [editing, setEditing] = useState(false)
   const [description, setDescription] = useState(txn.description)
   const [categoryId, setCategoryId] = useState<number | null>(txn.category)
+  const [status, setStatus] = useState(txn.status)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +49,7 @@ function EditableRow({
     setSaving(true)
     setError(null)
     try {
-      const updated = await updateTransaction(txn.id, { category: categoryId, description })
+      const updated = await updateTransaction(txn.id, { category: categoryId, description, status })
       onSaved(updated)
       setEditing(false)
     } catch (e) {
@@ -61,6 +62,7 @@ function EditableRow({
   function cancel() {
     setDescription(txn.description)
     setCategoryId(txn.category)
+    setStatus(txn.status)
     setEditing(false)
     setError(null)
   }
@@ -76,6 +78,15 @@ function EditableRow({
           </span>
         </div>
         <div className="flex items-center gap-2 sm:pl-[88px] flex-wrap">
+          <select
+            value={status}
+            onChange={e => setStatus(e.target.value as Transaction['status'])}
+            className="bg-neutral-800 border border-neutral-700/60 rounded px-2 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500 transition-colors"
+          >
+            <option value="unreviewed">Unreviewed</option>
+            <option value="tracked">Tracked</option>
+            <option value="excluded">Excluded</option>
+          </select>
           <CategoryInput
             categories={categories}
             value={categoryId}
@@ -124,9 +135,14 @@ function EditableRow({
           <p className="text-xs text-neutral-600 truncate leading-tight">{txn.account_name}</p>
         )}
       </div>
-      {txn.category_name
-        ? <CategoryPill name={txn.category_name} color={txn.category_color} />
-        : <span className="text-xs text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">edit</span>}
+      <span className="text-xs text-neutral-700 shrink-0 w-14 text-right">
+        {txn.status !== 'tracked' ? txn.status : ''}
+      </span>
+      <div className="w-24 shrink-0 flex justify-end">
+        {txn.category_name
+          ? <CategoryPill name={txn.category_name} color={txn.category_color} />
+          : <span className="text-xs text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity">edit</span>}
+      </div>
       <span className={`text-sm font-medium tabular-nums w-24 text-right shrink-0 ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
         {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
       </span>
@@ -145,7 +161,7 @@ export default function TransactionsPage() {
   const [month, setMonth] = useState<string>(location.state?.month ?? '')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unreviewed' | 'tracked' | 'excluded'>('all')
 
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -217,9 +233,9 @@ export default function TransactionsPage() {
         )}
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} className={selectCls}>
           <option value="all">All</option>
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="declined">Declined</option>
+          <option value="unreviewed">Unreviewed</option>
+          <option value="tracked">Tracked</option>
+          <option value="excluded">Excluded</option>
         </select>
         <select value={month} onChange={e => setMonth(e.target.value)} className={selectCls}>
           <option value="">All dates</option>

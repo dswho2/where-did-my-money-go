@@ -21,7 +21,7 @@ The home page gives a monthly spending snapshot:
 
 - **Monthly total** with % change vs. your 6-month average
 - **Top spending categories** ranked by amount with visual progress bars
-- **Review queue counter** — how many unconfirmed transactions need attention
+- **Review queue counter** — how many unreviewed transactions need attention
 - **Account balances** for all connected accounts
 - **Days remaining** in the current month
 - Month navigation (prev/next arrows and a month picker)
@@ -34,15 +34,15 @@ A card stack for processing new transactions one at a time:
 - Each card shows: date, merchant name, amount, and which account it came from
 - Assign a category inline via a dropdown (or create a new one on the fly)
 - Add a note/description to any transaction
-- Confirm (right) or Decline (left) with swipe animations
-- When you categorize a merchant, the same category is automatically propagated to other unconfirmed transactions from that merchant in the queue
+- Track (right) or Exclude (left) with swipe animations
+- When you categorize a merchant, the same category is automatically propagated to other unreviewed transactions from that merchant in the queue
 - Queue count shown so you know how many are left
 
 ### Transactions Page
 
 A full searchable, filterable list of all transactions:
 
-- Filters: month, confirmed status, category, account, and free-text search
+- Filters: month, status (unreviewed / tracked / excluded), category, account, and free-text search
 - Full-text search uses PostgreSQL trigram similarity to match merchant names and descriptions
 - Inline editing — click to change category or description without leaving the list
 - Pagination (50 per page by default, configurable up to 500)
@@ -102,12 +102,12 @@ Manage your expense categories:
 2. Backend stores the access token and fetches accounts via Teller's API (mutual TLS)
 3. Transactions are pulled for the chosen lookback period and saved to the database
 4. Each new transaction goes through the auto-categorizer:
-   - Payment/transfer detection → automatically declined (filtered out)
+   - Payment/transfer detection → automatically excluded (filtered out)
    - User's merchant rules (built up over time as you review) → applied immediately
    - Built-in keyword rules → applied as a fallback
 5. Unmatched transactions land in the review queue
-6. As you review and confirm transactions, merchant rules are created so future transactions from the same merchant are auto-categorized
-7. Confirming a merchant also retroactively updates other pending transactions from that same merchant in the queue
+6. As you review and track transactions, merchant rules are created so future transactions from the same merchant are auto-categorized
+7. Tracking a merchant also retroactively updates other unreviewed transactions from that same merchant in the queue
 
 ## Auto-Sync (Cron Job)
 
@@ -143,7 +143,7 @@ To assign the demo tier to any user via the Django admin, add them to the `demo`
 
 - **Enrollment** — one per bank login; stores Teller access token and institution name
 - **Account** — each credit card or bank account; linked to an enrollment; has a `tracked` flag
-- **Transaction** — imported from Teller; stores date, amount, merchant, description, category, and a `status` field (`pending` / `confirmed` / `declined`)
+- **Transaction** — imported from Teller; stores date, amount, merchant, description, category, and a `status` field (`unreviewed` / `tracked` / `excluded`)
 - **Category** — per-user categories with a name and color; a default set is seeded on registration
 - **MerchantRule** — per-user mapping of merchant key → category, built up during review
 - **UserBudgetConfig** — stores the full budget configuration as a JSON blob
@@ -241,7 +241,7 @@ See [backend/.env.example](backend/.env.example) and [frontend/.env.example](fro
 | DELETE | `/api/enrollments/{id}/` | Disconnect a bank |
 | GET/PATCH | `/api/accounts/{id}/` | View/update account (tracked status) |
 | GET | `/api/transactions/` | List transactions (paginated, filterable) |
-| PATCH | `/api/transactions/{id}/` | Update transaction (category, description, confirmed, declined) |
+| PATCH | `/api/transactions/{id}/` | Update transaction (category, description, status) |
 | GET | `/api/categories/` | List categories |
 | POST | `/api/categories/` | Create category |
 | PATCH/DELETE | `/api/categories/{id}/` | Update or delete category |

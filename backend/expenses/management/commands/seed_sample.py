@@ -97,18 +97,18 @@ BUDGET_CONFIG = {
     "salary_annual": 110000,
     "pay_frequency": "biweekly",
     "tax_rate": 28,
-    "pre_tax_deductions": [
-        {"label": "401(k)", "amount": 750},
-        {"label": "HSA",    "amount": 150},
+    "pre_tax": [
+        {"id": "pt1", "name": "401(k)",  "amount": 750},
+        {"id": "pt2", "name": "HSA",     "amount": 150},
     ],
-    "post_tax_deductions": [
-        {"label": "Health Insurance", "amount": 210},
-        {"label": "Dental / Vision",  "amount": 35},
+    "post_tax": [
+        {"id": "po1", "name": "Health Insurance", "amount": 210},
+        {"id": "po2", "name": "Dental / Vision",  "amount": 35},
     ],
-    "fixed_expenses": [
-        {"label": "Rent",        "amount": 2400},
-        {"label": "Electricity", "amount": 120},
-        {"label": "Internet",    "amount": 65},
+    "fixed": [
+        {"id": "fx1", "name": "Rent",        "amount": 2400},
+        {"id": "fx2", "name": "Electricity", "amount": 120},
+        {"id": "fx3", "name": "Internet",    "amount": 65},
     ],
     "category_budgets": {},  # filled in below
 }
@@ -262,7 +262,7 @@ class Command(BaseCommand):
                     continue
                 txn_counter += 1
                 # Subscriptions are confirmed except the most recent month
-                status = Transaction.CONFIRMED if month_idx > 0 else Transaction.PENDING
+                status = Transaction.TRACKED if month_idx > 0 else Transaction.UNREVIEWED
                 transactions_to_create.append(Transaction(
                     account=account_key_map[acc_key],
                     teller_id=f"sample_txn_{txn_counter:04d}",
@@ -288,9 +288,9 @@ class Command(BaseCommand):
                 txn_counter += 1
                 # Older months are fully confirmed; current month has a mix
                 if month_idx == 0:
-                    status = Transaction.PENDING if random.random() < 0.45 else Transaction.CONFIRMED
+                    status = Transaction.UNREVIEWED if random.random() < 0.45 else Transaction.TRACKED
                 else:
-                    status = Transaction.CONFIRMED
+                    status = Transaction.TRACKED
                 transactions_to_create.append(Transaction(
                     account=account_key_map[acc_key],
                     teller_id=f"sample_txn_{txn_counter:04d}",
@@ -313,7 +313,7 @@ class Command(BaseCommand):
                 merchant=merchant,
                 description=merchant,
                 category=None,
-                status=Transaction.DECLINED,
+                status=Transaction.EXCLUDED,
             ))
 
         Transaction.objects.bulk_create(transactions_to_create)

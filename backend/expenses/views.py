@@ -27,7 +27,7 @@ def _apply_auto_categorize(transaction):
     try:
         category, should_decline = categorizer.auto_categorize(transaction)
         if should_decline:
-            transaction.status = Transaction.DECLINED
+            transaction.status = Transaction.EXCLUDED
             transaction.save(update_fields=['status'])
         elif category is not None:
             transaction.category = category
@@ -183,7 +183,7 @@ def enrollment_list_create(request):
                     'amount': t['amount'],
                     'merchant': ((t.get('details') or {}).get('counterparty') or {}).get('name', '') or t.get('description', ''),
                     'description': '',
-                    'status': Transaction.PENDING,
+                    'status': Transaction.UNREVIEWED,
                 },
             )
             if created_txn:
@@ -299,11 +299,11 @@ class TransactionListView(generics.ListAPIView):
 
         # Status filter
         status_param = self.request.query_params.get('status')
-        if status_param in (Transaction.PENDING, Transaction.CONFIRMED, Transaction.DECLINED):
+        if status_param in (Transaction.UNREVIEWED, Transaction.TRACKED, Transaction.EXCLUDED):
             qs = qs.filter(status=status_param)
         elif status_param != 'all':
-            # Default: hide declined
-            qs = qs.exclude(status=Transaction.DECLINED)
+            # Default: hide excluded
+            qs = qs.exclude(status=Transaction.EXCLUDED)
 
         month = self.request.query_params.get('month')  # expects YYYY-MM
         if month:
@@ -393,7 +393,7 @@ class TransactionDetailView(generics.UpdateAPIView):
                 Transaction.objects
                 .filter(
                     account__enrollment__user=self.request.user,
-                    status=Transaction.PENDING,
+                    status=Transaction.UNREVIEWED,
                     category__isnull=True,
                 )
                 .exclude(merchant='')
@@ -462,7 +462,7 @@ def _sync_account(enrollment, remote_acct) -> int:
             amount=t['amount'],
             merchant=((t.get('details') or {}).get('counterparty') or {}).get('name', '') or t.get('description', ''),
             description='',
-            status=Transaction.PENDING,
+            status=Transaction.UNREVIEWED,
         )
         for t in remote_txns
         if t['id'] not in existing_ids
@@ -553,7 +553,7 @@ def spending_summary(request):
     qs = Transaction.objects.filter(
         account__enrollment__user=request.user,
         account__tracked=True,
-        status=Transaction.CONFIRMED,
+        status=Transaction.TRACKED,
         amount__gt=0,  # positive = expense (charge); negative = refund/credit
     )
 
@@ -650,7 +650,7 @@ def dashboard(request):
     review_count = Transaction.objects.filter(
         account__enrollment__user=user,
         account__tracked=True,
-        status=Transaction.PENDING,
+        status=Transaction.UNREVIEWED,
     ).count()
 
     # Selected month bounds
@@ -669,7 +669,7 @@ def dashboard(request):
     base_qs = Transaction.objects.filter(
         account__enrollment__user=user,
         account__tracked=True,
-        status=Transaction.CONFIRMED,
+        status=Transaction.TRACKED,
         amount__gt=0,
     )
 

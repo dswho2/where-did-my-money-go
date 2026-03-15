@@ -118,7 +118,11 @@ def auto_categorize(transaction: Transaction) -> tuple['Category | None', bool]:
 
     merchant = (transaction.merchant or '').strip()
 
-    # 1. Credit-card / bill payment → auto-decline
+    # 1. Negative amounts on any account = payment/refund/deposit, not an expense
+    if transaction.amount <= 0:
+        return None, True
+
+    # 1b. Keyword-based payment detection as an additional layer
     if is_payment(merchant):
         return None, True
 
@@ -141,7 +145,7 @@ def auto_categorize(transaction: Transaction) -> tuple['Category | None', bool]:
     # 3. Built-in keyword rules (pure Python, no DB)
     cat_name = _builtin_category(key)
     if cat_name:
-        category, _ = Category.objects.get_or_create(name=cat_name)
-        return category, False
+        category = Category.objects.filter(user=user, name=cat_name).first()
+        return category, False  # category may be None if user hasn't created it yet
 
     return None, False

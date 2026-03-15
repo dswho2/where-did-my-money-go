@@ -85,12 +85,12 @@ class Transaction(models.Model):
     merchant = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
-    PENDING = 'pending'
-    CONFIRMED = 'confirmed'
-    DECLINED = 'declined'
-    STATUS_CHOICES = [(PENDING, 'Pending'), (CONFIRMED, 'Confirmed'), (DECLINED, 'Declined')]
+    UNREVIEWED = 'unreviewed'
+    TRACKED = 'tracked'
+    EXCLUDED = 'excluded'
+    STATUS_CHOICES = [(UNREVIEWED, 'Unreviewed'), (TRACKED, 'Tracked'), (EXCLUDED, 'Excluded')]
 
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=UNREVIEWED)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

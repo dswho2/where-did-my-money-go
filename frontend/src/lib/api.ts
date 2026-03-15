@@ -101,11 +101,11 @@ export const updateTransaction = (id: number, data: Partial<Transaction>) =>
     body: JSON.stringify(data),
   })
 
-export const confirmTransaction = (id: number) =>
-  updateTransaction(id, { status: 'confirmed' })
+export const trackTransaction = (id: number) =>
+  updateTransaction(id, { status: 'tracked' })
 
-export const declineTransaction = (id: number) =>
-  updateTransaction(id, { status: 'declined' })
+export const excludeTransaction = (id: number) =>
+  updateTransaction(id, { status: 'excluded' })
 
 export const createCategory = (name: string, color?: string) =>
   request<Category>('/api/categories/', {
