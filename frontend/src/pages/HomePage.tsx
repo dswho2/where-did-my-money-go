@@ -91,7 +91,7 @@ export default function HomePage() {
   }
 
   const { review_count, month, avg_6m } = data ?? {}
-  const maxCatTotal = month?.top_categories[0]?.total ?? 1
+  const catGrandTotal = month?.top_categories.reduce((s, c) => s + c.total, 0) ?? 1
   const pctVsAvg = avg_6m && avg_6m > 0 && month
     ? ((month.total - avg_6m) / avg_6m) * 100
     : null
@@ -199,7 +199,7 @@ export default function HomePage() {
                     <div className="flex-1 h-1 bg-neutral-800 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${(cat.total / maxCatTotal) * 100}%`, backgroundColor: cat.color, opacity: 0.7 }}
+                        style={{ width: `${(cat.total / catGrandTotal) * 100}%`, backgroundColor: cat.color, opacity: 0.7 }}
                       />
                     </div>
                     <span className="text-xs tabular-nums text-neutral-300 w-16 text-right shrink-0">{fmtExact(cat.total)}</span>
