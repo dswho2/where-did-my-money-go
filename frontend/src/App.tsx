@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { getMe } from './lib/api'
+import { getMe, getStoredToken } from './lib/api'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
@@ -17,6 +17,10 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>('loading')
 
   useEffect(() => {
+    if (!getStoredToken()) {
+      setAuth('anon')
+      return
+    }
     getMe()
       .then(() => setAuth('authed'))
       .catch(() => setAuth('anon'))

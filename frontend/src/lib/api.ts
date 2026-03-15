@@ -2,19 +2,26 @@ import type { Account, Category, DashboardData, Enrollment, Transaction, Spendin
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
-function getCsrfToken(): string {
-  return document.cookie
-    .split('; ')
-    .find(r => r.startsWith('csrftoken='))
-    ?.split('=')[1] ?? ''
+const TOKEN_KEY = 'auth_token'
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setStoredToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getStoredToken()
   const res = await fetch(`${BASE_URL}${path}`, {
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': getCsrfToken(),
+      ...(token ? { 'Authorization': `Token ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
@@ -34,11 +41,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Auth
-export const login = (username: string, password: string) =>
-  request<{ username: string }>('/api/auth/login/', {
+export const login = async (username: string, password: string): Promise<{ username: string }> => {
+  const res = await request<{ username: string; token: string }>('/api/auth/login/', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   })
+  setStoredToken(res.token)
+  return { username: res.username }
+}
 
 export const register = (username: string, password: string) =>
   request<{ username: string }>('/api/auth/register/', {
@@ -46,8 +56,10 @@ export const register = (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   })
 
-export const logout = () =>
-  request<void>('/api/auth/logout/', { method: 'POST' })
+export const logout = async (): Promise<void> => {
+  await request<void>('/api/auth/logout/', { method: 'POST' }).catch(() => {})
+  clearStoredToken()
+}
 
 export const getMe = () =>
   request<{ username: string }>('/api/auth/me/')

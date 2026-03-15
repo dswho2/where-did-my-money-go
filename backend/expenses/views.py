@@ -1,10 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from django.db.models import Max
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -65,23 +64,24 @@ def auth_register(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def auth_login(request):
+    from rest_framework.authtoken.models import Token
     username = request.data.get('username', '')
     password = request.data.get('password', '')
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response({'error': 'Invalid credentials.'}, status=401)
-    login(request, user)
-    return Response({'username': user.username})
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({'username': user.username, 'token': token.key})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def auth_logout(request):
-    logout(request)
+    from rest_framework.authtoken.models import Token
+    Token.objects.filter(user=request.user).delete()
     return Response(status=204)
 
 
-@ensure_csrf_cookie
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_me(request):
