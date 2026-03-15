@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me-in-production')
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -19,11 +19,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
+    'django.contrib.postgres',
     'expenses',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -32,6 +35,22 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CORS — allow the Vite dev server; add your production frontend URL here too
+_frontend_origins = os.environ.get('FRONTEND_ORIGINS', 'http://localhost:5173').split(',')
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _frontend_origins]
+CORS_ALLOW_CREDENTIALS = True
+
+# CSRF
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+# Cross-origin deployments (frontend/backend on different domains) require
+# SameSite=None + Secure so the browser sends cookies on cross-origin requests.
+# In local dev (DEBUG=True) keep Lax so HTTP works without HTTPS.
+_cross_origin = not DEBUG
+SESSION_COOKIE_SAMESITE = 'None' if _cross_origin else 'Lax'
+SESSION_COOKIE_SECURE = _cross_origin
+CSRF_COOKIE_SAMESITE = 'None' if _cross_origin else 'Lax'
+CSRF_COOKIE_SECURE = _cross_origin
 
 ROOT_URLCONF = 'api.urls'
 
@@ -52,16 +71,30 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api.wsgi.application'
 
+_db_url = os.environ.get('DATABASE_URL', '')
+if not _db_url:
+    raise RuntimeError('DATABASE_URL is not set. Add it to your .env file.')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'postgres'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'OPTIONS': {
+            'service': None,
+        },
     }
 }
+
+# Parse the connection string manually so we don't need dj-database-url
+import urllib.parse as _urlparse
+_u = _urlparse.urlparse(_db_url)
+DATABASES['default'].update({
+    'NAME': _u.path.lstrip('/'),
+    'USER': _u.username,
+    'PASSWORD': _u.password,
+    'HOST': _u.hostname,
+    'PORT': _u.port or 5432,
+    'OPTIONS': {'sslmode': _urlparse.parse_qs(_u.query).get('sslmode', ['require'])[0]},
+})
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -77,6 +110,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'EXCEPTION_HANDLER': 'expenses.views.drf_exception_handler',
 }
 
 LANGUAGE_CODE = 'en-us'
@@ -85,10 +119,13 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Teller API
+# Teller API — Option A: file paths (local dev)
 TELLER_CERT_PATH = os.environ.get('TELLER_CERT_PATH', '')
 TELLER_PRIVATE_KEY_PATH = os.environ.get('TELLER_PRIVATE_KEY_PATH', '')
-TELLER_API_URL = 'https://api.teller.io'
+# Teller API — Option B: inline PEM content (Vercel / production), takes priority
+TELLER_CERT = os.environ.get('TELLER_CERT', '')
+TELLER_PRIVATE_KEY = os.environ.get('TELLER_PRIVATE_KEY', '')
