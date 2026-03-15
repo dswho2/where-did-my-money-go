@@ -40,6 +40,10 @@ MIDDLEWARE = [
 # CORS — allow the Vite dev server; add your production frontend URL here too
 _frontend_origins = os.environ.get('FRONTEND_ORIGINS', 'http://localhost:5173').split(',')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _frontend_origins]
+# Also allow Vercel preview/branch deployments which have dynamic URLs
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://where-did-my-money-go[a-z0-9\-]*\.vercel\.app$',
+]
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF
