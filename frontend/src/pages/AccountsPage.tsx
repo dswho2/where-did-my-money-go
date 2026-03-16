@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { getEnrollments, createEnrollment, deleteEnrollment, syncTransactions, updateAccount } from '../lib/api'
 import type { Enrollment, Account } from '../lib/types'
@@ -29,6 +29,9 @@ export default function AccountsPage() {
   const [syncResult, setSyncResult] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [editingNicknameId, setEditingNicknameId] = useState<number | null>(null)
+  const [nicknameValue, setNicknameValue] = useState('')
+  const nicknameInputRef = useRef<HTMLInputElement>(null)
 
   // Connect dialog
   const [showDialog, setShowDialog] = useState(false)
@@ -101,6 +104,29 @@ export default function AccountsPage() {
       setError(e instanceof Error ? e.message : 'Failed to disconnect.')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  function startEditingNickname(account: Account) {
+    setEditingNicknameId(account.id)
+    setNicknameValue(account.nickname)
+    setTimeout(() => nicknameInputRef.current?.focus(), 0)
+  }
+
+  async function saveNickname(enrollmentId: number, account: Account) {
+    const trimmed = nicknameValue.trim()
+    setEditingNicknameId(null)
+    if (trimmed === account.nickname) return
+    try {
+      const updated = await updateAccount(account.id, { nickname: trimmed })
+      setEnrollments(prev => prev.map(e =>
+        e.id !== enrollmentId ? e : {
+          ...e,
+          accounts: e.accounts.map(a => a.id === account.id ? { ...a, nickname: updated.nickname } : a),
+        }
+      ))
+    } catch {
+      // non-critical, ignore
     }
   }
 
@@ -183,12 +209,32 @@ export default function AccountsPage() {
                       account.tracked ? 'border-neutral-800' : 'border-neutral-800/50 opacity-50'
                     }`}
                   >
-                    <div>
-                      <p className={`text-sm ${account.tracked ? 'text-neutral-200' : 'text-neutral-500'}`}>
-                        {account.name}
-                      </p>
+                    <div className="min-w-0 flex-1 mr-4">
+                      {editingNicknameId === account.id ? (
+                        <input
+                          ref={nicknameInputRef}
+                          value={nicknameValue}
+                          onChange={e => setNicknameValue(e.target.value)}
+                          onBlur={() => saveNickname(enrollment.id, account)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveNickname(enrollment.id, account)
+                            if (e.key === 'Escape') setEditingNicknameId(null)
+                          }}
+                          placeholder={account.name}
+                          className="w-full bg-neutral-800 border border-neutral-600 rounded px-2 py-0.5 text-sm text-neutral-200 focus:outline-none focus:border-neutral-400 transition-colors"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startEditingNickname(account)}
+                          className={`text-left text-sm truncate w-full group/name ${account.tracked ? 'text-neutral-200' : 'text-neutral-500'}`}
+                          title="Click to set nickname"
+                        >
+                          {account.nickname || account.name}
+                          <span className="ml-1.5 text-neutral-700 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs">rename</span>
+                        </button>
+                      )}
                       <p className="text-xs text-neutral-600 capitalize mt-0.5">
-                        {account.account_type}{account.last_four ? ` ···· ${account.last_four}` : ''}
+                        {account.nickname ? account.name + ' · ' : ''}{account.account_type}{account.last_four ? ` - ${account.last_four}` : ''}
                       </p>
                     </div>
 

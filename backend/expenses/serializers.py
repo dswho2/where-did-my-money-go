@@ -19,7 +19,7 @@ class AccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Account
         fields = [
-            'id', 'teller_id', 'name', 'last_four', 'account_type',
+            'id', 'teller_id', 'name', 'nickname', 'last_four', 'account_type',
             'institution_name', 'balance_ledger', 'balance_available', 'tracked',
         ]
         read_only_fields = ['id', 'teller_id', 'name', 'last_four', 'account_type', 'institution_name', 'balance_ledger', 'balance_available']
@@ -48,7 +48,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = ['teller_id', 'date', 'amount', 'merchant', 'account']
 
     def get_account_name(self, obj):
-        parts = [obj.account.name]
+        display = obj.account.nickname or obj.account.name
+        parts = [display]
         if obj.account.last_four:
-            parts.append(f'···· {obj.account.last_four}')
+            parts.append(f'- {obj.account.last_four}')
         return ' '.join(parts)

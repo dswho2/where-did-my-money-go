@@ -17,6 +17,7 @@ class Account(models.Model):
     enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name='accounts')
     teller_id = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
+    nickname = models.CharField(max_length=100, blank=True, default='')
     last_four = models.CharField(max_length=4, blank=True)
     account_type = models.CharField(max_length=50)  # e.g. "credit", "depository"
     balance_ledger = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)

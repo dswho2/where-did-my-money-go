@@ -471,10 +471,18 @@ def _sync_account(enrollment, remote_acct) -> int:
     if not new_txns:
         return 0
 
-    created = Transaction.objects.bulk_create(new_txns, ignore_conflicts=True)
-    for txn in created:
+    new_teller_ids = [t.teller_id for t in new_txns]
+    Transaction.objects.bulk_create(new_txns, ignore_conflicts=True)
+    # Re-fetch from DB so objects have PKs — bulk_create with ignore_conflicts
+    # does not reliably return PKs on Postgres, causing silent save failures.
+    fresh = list(
+        Transaction.objects
+        .filter(account=account, teller_id__in=new_teller_ids)
+        .select_related('account__enrollment')
+    )
+    for txn in fresh:
         _apply_auto_categorize(txn)
-    return len(created)
+    return len(fresh)
 
 
 def _sync_enrollment(enrollment, synced_count: list):

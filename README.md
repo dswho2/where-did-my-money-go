@@ -111,7 +111,7 @@ Manage your expense categories:
 
 ## Auto-Sync (Cron Job)
 
-A Vercel cron job runs daily at 12:00 PM UTC and syncs transactions for all users. Each enrollment's accounts are fetched in parallel. New transactions since the last sync (or 90 days back if no prior sync) are imported and auto-categorized.
+A Vercel cron job runs daily at 7:00 AM UTC and syncs transactions for all users. Each enrollment's accounts are fetched in parallel. New transactions since the last sync (or 90 days back if no prior sync) are imported and auto-categorized.
 
 Manual sync is also available via the Sync button on the Accounts page.
 

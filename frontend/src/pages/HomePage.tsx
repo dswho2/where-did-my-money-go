@@ -224,7 +224,7 @@ export default function HomePage() {
             {accounts.map(acct => (
               <div key={acct.id} className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-neutral-200">{acct.name}{acct.last_four ? ` ···· ${acct.last_four}` : ''}</p>
+                  <p className="text-sm text-neutral-200">{acct.nickname || acct.name}{acct.last_four ? ` - ${acct.last_four}` : ''}</p>
                   <p className="text-xs text-neutral-600">{acct.institution_name}</p>
                 </div>
                 <div className="text-right">

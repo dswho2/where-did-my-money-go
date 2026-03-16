@@ -80,7 +80,7 @@ export const deleteEnrollment = (id: number) =>
 // Accounts
 export const getAccounts = () => request<Account[]>('/api/accounts/')
 
-export const updateAccount = (id: number, data: { tracked: boolean }) =>
+export const updateAccount = (id: number, data: Partial<{ tracked: boolean; nickname: string }>) =>
   request<Account>(`/api/accounts/${id}/`, {
     method: 'PATCH',
     body: JSON.stringify(data),

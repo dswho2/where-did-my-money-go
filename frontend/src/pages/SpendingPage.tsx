@@ -194,6 +194,11 @@ export default function SpendingPage() {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [selectedAccounts, setSelectedAccounts]     = useState<number[]>([])
 
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false)
+  const [accountsExpanded, setAccountsExpanded] = useState(false)
+  const CATEGORY_FILTER_LIMIT = 5
+  const ACCOUNT_FILTER_LIMIT = 3
+
   const [avgHovered, setAvgHovered] = useState(false)
   const [barHovered, setBarHovered] = useState(false)
   const barHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -332,7 +337,7 @@ export default function SpendingPage() {
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-xs text-neutral-600 mr-1">Categories</span>
-            {categories.map(cat => {
+            {(categoriesExpanded ? categories : categories.slice(0, CATEGORY_FILTER_LIMIT)).map(cat => {
               const active = selectedCategories.includes(cat.id)
               return (
                 <button key={cat.id} onClick={() => toggleCategory(cat.id)}
@@ -345,6 +350,12 @@ export default function SpendingPage() {
                 </button>
               )
             })}
+            {categories.length > CATEGORY_FILTER_LIMIT && (
+              <button onClick={() => setCategoriesExpanded(e => !e)}
+                className="text-xs text-neutral-600 hover:text-neutral-400">
+                {categoriesExpanded ? 'less' : `+${categories.length - CATEGORY_FILTER_LIMIT} more`}
+              </button>
+            )}
             {selectedCategories.length > 0 && (
               <button onClick={() => setSelectedCategories([])} className="text-xs text-neutral-600 hover:text-neutral-400 ml-1">Clear</button>
             )}
@@ -355,7 +366,7 @@ export default function SpendingPage() {
         {accounts.length > 1 && (
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-xs text-neutral-600 mr-1">Accounts</span>
-            {accounts.map(acct => {
+            {(accountsExpanded ? accounts : accounts.slice(0, ACCOUNT_FILTER_LIMIT)).map(acct => {
               const active = selectedAccounts.includes(acct.id)
               return (
                 <button key={acct.id} onClick={() => toggleAccount(acct.id)}
@@ -363,10 +374,16 @@ export default function SpendingPage() {
                     active ? 'bg-neutral-300 border-transparent text-neutral-900 font-medium'
                       : 'border-neutral-700 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
                   }`}>
-                  {acct.name}{acct.last_four ? ` ···· ${acct.last_four}` : ''}
+                  {acct.name}{acct.last_four ? ` - ${acct.last_four}` : ''}
                 </button>
               )
             })}
+            {accounts.length > ACCOUNT_FILTER_LIMIT && (
+              <button onClick={() => setAccountsExpanded(e => !e)}
+                className="text-xs text-neutral-600 hover:text-neutral-400">
+                {accountsExpanded ? 'less' : `+${accounts.length - ACCOUNT_FILTER_LIMIT} more`}
+              </button>
+            )}
             {selectedAccounts.length > 0 && (
               <button onClick={() => setSelectedAccounts([])} className="text-xs text-neutral-600 hover:text-neutral-400 ml-1">Clear</button>
             )}

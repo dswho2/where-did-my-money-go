@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { getTransactions, getCategories, getAccounts, updateTransaction } from '../lib/api'
 import type { Transaction, Category, Account } from '../lib/types'
@@ -27,23 +27,51 @@ const selectCls =
 function EditableRow({
   txn,
   categories,
+  isEditing,
+  onStartEdit,
+  onClose,
   onSaved,
   onCategoryCreated,
 }: {
   txn: Transaction
   categories: Category[]
+  isEditing: boolean
+  onStartEdit: () => void
+  onClose: () => void
   onSaved: (updated: Transaction) => void
   onCategoryCreated: (cat: Category) => void
 }) {
-  const [editing, setEditing] = useState(false)
   const [description, setDescription] = useState(txn.description)
   const [categoryId, setCategoryId] = useState<number | null>(txn.category)
   const [status, setStatus] = useState(txn.status)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
 
   const amount = parseFloat(txn.amount)
   const isCredit = amount < 0
+
+  // Reset local state when editing opens
+  useEffect(() => {
+    if (isEditing) {
+      setDescription(txn.description)
+      setCategoryId(txn.category)
+      setStatus(txn.status)
+      setError(null)
+    }
+  }, [isEditing])
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isEditing) return
+    function handleMouseDown(e: MouseEvent) {
+      if (rowRef.current && !rowRef.current.contains(e.target as Node)) {
+        cancel()
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [isEditing])
 
   async function save() {
     setSaving(true)
@@ -51,7 +79,7 @@ function EditableRow({
     try {
       const updated = await updateTransaction(txn.id, { category: categoryId, description, status })
       onSaved(updated)
-      setEditing(false)
+      onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.')
     } finally {
@@ -60,16 +88,12 @@ function EditableRow({
   }
 
   function cancel() {
-    setDescription(txn.description)
-    setCategoryId(txn.category)
-    setStatus(txn.status)
-    setEditing(false)
-    setError(null)
+    onClose()
   }
 
-  if (editing) {
+  if (isEditing) {
     return (
-      <div className="py-2.5 border-b border-neutral-800/50 last:border-0 space-y-2">
+      <div ref={rowRef} className="py-2.5 border-b border-neutral-800/50 last:border-0 space-y-2">
         <div className="flex items-center gap-3">
           <span className="text-xs text-neutral-600 tabular-nums shrink-0 w-20">{txn.date}</span>
           <p className="text-sm text-neutral-200 flex-1 truncate">{txn.merchant || '—'}</p>
@@ -123,51 +147,56 @@ function EditableRow({
   return (
     <div
       className="py-3 sm:py-2 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-900/40 rounded-sm -mx-1 px-2 sm:px-1 transition-colors"
-      onClick={() => setEditing(true)}
+      onClick={onStartEdit}
     >
-      <div className="flex items-start gap-2 sm:items-center sm:gap-3">
-        {/* Date — desktop only column */}
-        <span className="hidden sm:block text-xs text-neutral-600 tabular-nums shrink-0 w-20">{txn.date}</span>
+      {/* Mobile layout: 2-column grid, 4 cells so col 2 aligns amount + category */}
+      <div className="sm:hidden grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5">
+        {/* Row 1 */}
+        <p className="text-sm text-neutral-200 truncate leading-tight">{txn.merchant || '—'}</p>
+        <span className={`text-sm font-medium tabular-nums text-right ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
+          {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
+        </span>
+        {/* Row 2 */}
+        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+          <span className="text-xs text-neutral-600 tabular-nums shrink-0">{txn.date}</span>
+          {txn.account_name && (
+            <span className="text-xs text-neutral-600 truncate">· {txn.account_name}</span>
+          )}
+        </div>
+        <div className="flex justify-end items-center">
+          {txn.category_name
+            ? <CategoryPill name={txn.category_name} color={txn.category_color} />
+            : txn.status !== 'tracked'
+              ? <span className="text-xs text-neutral-500">{txn.status}</span>
+              : null}
+        </div>
+        {/* Description — full width if present */}
+        {txn.description && (
+          <p className="text-xs text-neutral-500 truncate leading-tight col-span-2">{txn.description}</p>
+        )}
+      </div>
 
-        {/* Merchant + sub-row on mobile */}
+      {/* Desktop layout: flex row */}
+      <div className="hidden sm:flex items-center gap-3">
+        <span className="text-xs text-neutral-600 tabular-nums shrink-0 w-20">{txn.date}</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm text-neutral-200 truncate leading-tight">{txn.merchant || '—'}</p>
           {txn.description && (
             <p className="text-xs text-neutral-500 truncate leading-tight">{txn.description}</p>
           )}
-          {/* Mobile sub-row: date · account · status · category */}
-          <div className="flex items-center gap-2 mt-1 sm:hidden flex-wrap">
-            <span className="text-xs text-neutral-600 tabular-nums">{txn.date}</span>
-            {txn.account_name && (
-              <span className="text-xs text-neutral-600 truncate">· {txn.account_name}</span>
-            )}
-            {txn.status !== 'tracked' && (
-              <span className="text-xs text-neutral-500">{txn.status}</span>
-            )}
-            {txn.category_name && (
-              <CategoryPill name={txn.category_name} color={txn.category_color} />
-            )}
-          </div>
-          {/* Desktop: account name */}
           {txn.account_name && (
-            <p className="hidden sm:block text-xs text-neutral-600 truncate leading-tight">{txn.account_name}</p>
+            <p className="text-xs text-neutral-600 truncate leading-tight">{txn.account_name}</p>
           )}
         </div>
-
-        {/* Status — desktop only */}
-        <span className="hidden sm:block text-xs text-neutral-700 shrink-0 w-14 text-right">
+        <span className="text-xs text-neutral-700 shrink-0 w-14 text-right">
           {txn.status !== 'tracked' ? txn.status : ''}
         </span>
-
-        {/* Category — desktop only */}
-        <div className="hidden sm:flex w-24 shrink-0 justify-end">
+        <div className="w-24 shrink-0 flex justify-end">
           {txn.category_name
             ? <CategoryPill name={txn.category_name} color={txn.category_color} />
             : <span className="text-xs text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity">edit</span>}
         </div>
-
-        {/* Amount — always shown */}
-        <span className={`text-sm font-medium tabular-nums shrink-0 pr-1 sm:pr-0 sm:w-24 text-right ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
+        <span className={`text-sm font-medium tabular-nums shrink-0 w-24 text-right ${isCredit ? 'text-emerald-400' : 'text-neutral-300'}`}>
           {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
         </span>
       </div>
@@ -184,7 +213,7 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [month, setMonth] = useState<string>(location.state?.month ?? '')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>(location.state?.category ?? '')
   const [accountFilter, setAccountFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'unreviewed' | 'tracked' | 'excluded'>('all')
 
@@ -234,6 +263,8 @@ export default function TransactionsPage() {
     setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [cat, ...prev])
   }
 
+  const [editingId, setEditingId] = useState<number | null>(null)
+
   function handleSaved(updated: Transaction) {
     setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t))
   }
@@ -251,7 +282,7 @@ export default function TransactionsPage() {
             <option value="">All accounts</option>
             {accounts.map(a => (
               <option key={a.id} value={String(a.id)}>
-                {a.name}{a.last_four ? ` ···· ${a.last_four}` : ''}
+                {a.name}{a.last_four ? ` - ${a.last_four}` : ''}
               </option>
             ))}
           </select>
@@ -311,6 +342,9 @@ export default function TransactionsPage() {
             key={txn.id}
             txn={txn}
             categories={categories}
+            isEditing={editingId === txn.id}
+            onStartEdit={() => setEditingId(txn.id)}
+            onClose={() => setEditingId(null)}
             onSaved={handleSaved}
             onCategoryCreated={addCategory}
           />

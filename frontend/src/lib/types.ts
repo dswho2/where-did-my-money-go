@@ -10,6 +10,7 @@ export interface Account {
   enrollment: number
   teller_id: string
   name: string
+  nickname: string
   last_four: string
   account_type: string
   institution_name: string

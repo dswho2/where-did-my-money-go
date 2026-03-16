@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../lib/api'
 import type { Category } from '../lib/types'
 
@@ -93,18 +94,24 @@ function CategoryRow({
           className="flex-1 bg-neutral-800 border border-neutral-600 rounded px-2.5 py-1 text-sm text-neutral-200 focus:outline-none focus:border-neutral-400 transition-colors"
         />
       ) : (
-        <span
-          className="flex-1 text-sm text-neutral-200 cursor-pointer hover:text-white transition-colors"
-          onClick={() => setEditing(true)}
+        <Link
+          to="/transactions"
+          state={{ category: String(category.id) }}
+          className="flex-1 text-sm text-neutral-200 hover:text-white transition-colors"
         >
           {category.name}
-        </span>
+        </Link>
       )}
 
       {typeof category.usage === 'number' && (
-        <span className="text-xs text-neutral-600 tabular-nums shrink-0">
-          {category.usage} {category.usage === 1 ? 'txn' : 'txns'}
-        </span>
+        <Link
+          to="/transactions"
+          state={{ category: String(category.id) }}
+          className="flex items-center gap-1.5 text-xs text-neutral-600 hover:text-neutral-400 tabular-nums shrink-0 w-20 transition-colors"
+        >
+          <span>→</span>
+          <span>{category.usage} {category.usage === 1 ? 'txn' : 'txns'}</span>
+        </Link>
       )}
 
       {!editing && (
