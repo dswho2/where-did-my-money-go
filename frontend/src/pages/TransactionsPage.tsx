@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getTransactions, getCategories, getAccounts, updateTransaction } from '../lib/api'
+import { getTransactions, getCategories, getAccounts, updateTransaction, createTransaction, deleteTransaction } from '../lib/api'
 import type { Transaction, Category, Account } from '../lib/types'
 import CategoryPill from '../components/CategoryPill'
 import CategoryInput from '../components/CategoryInput'
@@ -31,6 +31,7 @@ function EditableRow({
   onStartEdit,
   onClose,
   onSaved,
+  onDeleted,
   onCategoryCreated,
 }: {
   txn: Transaction
@@ -39,38 +40,45 @@ function EditableRow({
   onStartEdit: () => void
   onClose: () => void
   onSaved: (updated: Transaction) => void
+  onDeleted: (id: number) => void
   onCategoryCreated: (cat: Category) => void
 }) {
   const [description, setDescription] = useState(txn.description)
   const [categoryId, setCategoryId] = useState<number | null>(txn.category)
   const [status, setStatus] = useState(txn.status)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const rowRef = useRef<HTMLDivElement>(null)
 
   const amount = parseFloat(txn.amount)
   const isCredit = amount < 0
 
-  // Reset local state when editing opens
+  // Reset local state when editing opens/closes
   useEffect(() => {
     if (isEditing) {
       setDescription(txn.description)
       setCategoryId(txn.category)
       setStatus(txn.status)
       setError(null)
+      setConfirmDelete(false)
     }
   }, [isEditing])
 
-  // Close on outside click
+  // Close on outside click — use pointerdown on the row itself to stop propagation,
+  // so the document listener only sees clicks that originate outside.
   useEffect(() => {
     if (!isEditing) return
-    function handleMouseDown(e: MouseEvent) {
+    function handlePointerDown(e: PointerEvent) {
       if (rowRef.current && !rowRef.current.contains(e.target as Node)) {
         cancel()
       }
     }
-    document.addEventListener('mousedown', handleMouseDown)
-    return () => document.removeEventListener('mousedown', handleMouseDown)
+    // Use capture phase so we see the event before React's bubble-phase handlers,
+    // meaning e.target is still attached to the DOM when we check it.
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true)
   }, [isEditing])
 
   async function save() {
@@ -84,6 +92,19 @@ function EditableRow({
       setError(e instanceof Error ? e.message : 'Save failed.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    setDeleting(true)
+    try {
+      await deleteTransaction(txn.id)
+      onDeleted(txn.id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed.')
+      setDeleting(false)
+      setConfirmDelete(false)
     }
   }
 
@@ -101,45 +122,53 @@ function EditableRow({
             {isCredit ? '+' : '-'}${Math.abs(amount).toFixed(2)}
           </span>
         </div>
-        <div className="flex items-center gap-2 sm:pl-[88px] flex-wrap">
-          <select
-            value={status}
-            onChange={e => setStatus(e.target.value as Transaction['status'])}
-            className="bg-neutral-800 border border-neutral-700/60 rounded px-2 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500 transition-colors"
-          >
-            <option value="unreviewed">Unreviewed</option>
-            <option value="tracked">Tracked</option>
-            <option value="excluded">Excluded</option>
-          </select>
-          <CategoryInput
-            categories={categories}
-            value={categoryId}
-            onChange={setCategoryId}
-            onCreateAndSelect={cat => { onCategoryCreated(cat); setCategoryId(cat.id) }}
-          />
-          <input
-            type="text"
-            placeholder="Add a note..."
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save() }}
-            className="flex-1 bg-neutral-800 border border-neutral-700/60 rounded px-2.5 py-1.5 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
-          />
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-3 py-1.5 bg-white text-neutral-900 text-xs font-semibold rounded hover:bg-neutral-100 disabled:opacity-40 transition-colors shrink-0"
-          >
-            {saving ? '...' : 'Save'}
-          </button>
-          <button
-            onClick={cancel}
-            className="px-3 py-1.5 text-xs text-neutral-600 hover:text-neutral-300 transition-colors shrink-0"
-          >
-            Cancel
-          </button>
+        <div className="sm:pl-[88px] space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value as Transaction['status'])}
+              className="bg-neutral-800 border border-neutral-700/60 rounded px-2 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500 transition-colors"
+            >
+              <option value="unreviewed">Unreviewed</option>
+              <option value="tracked">Tracked</option>
+              <option value="excluded">Excluded</option>
+            </select>
+            <CategoryInput
+              categories={categories}
+              value={categoryId}
+              onChange={setCategoryId}
+              onCreateAndSelect={cat => { onCategoryCreated(cat); setCategoryId(cat.id) }}
+            />
+            <input
+              type="text"
+              placeholder="Add a note..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') save() }}
+              className="flex-1 min-w-[8rem] bg-neutral-800 border border-neutral-700/60 rounded px-2.5 py-1.5 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className={`px-3 py-1.5 text-xs disabled:opacity-40 transition-colors min-w-[4.5rem] text-center ${confirmDelete ? 'text-red-400 font-semibold' : 'text-neutral-600 hover:text-red-400'}`}
+            >
+              {deleting ? '...' : confirmDelete ? 'Confirm?' : 'Delete'}
+            </button>
+            <button onClick={cancel} className="px-3 py-1.5 text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-3 py-1.5 bg-white text-neutral-900 text-xs font-semibold rounded hover:bg-neutral-100 disabled:opacity-40 transition-colors"
+            >
+              {saving ? '...' : 'Save'}
+            </button>
+          </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
         </div>
-        {error && <p className="text-red-400 text-xs pl-[88px]">{error}</p>}
       </div>
     )
   }
@@ -264,25 +293,59 @@ export default function TransactionsPage() {
   }
 
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState({ date: new Date().toISOString().slice(0, 10), merchant: '', amount: '', account: '', category: '', description: '' })
+  const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   function handleSaved(updated: Transaction) {
     setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t))
   }
 
+  async function handleAddSubmit() {
+    setAddSaving(true)
+    setAddError(null)
+    try {
+      const txn = await createTransaction({
+        account: Number(addForm.account),
+        date: addForm.date,
+        amount: parseFloat(addForm.amount),
+        merchant: addForm.merchant,
+        description: addForm.description,
+        category: addForm.category ? Number(addForm.category) : null,
+        status: 'tracked',
+      })
+      setTransactions(prev => [txn, ...prev])
+      setShowAddModal(false)
+      setAddForm({ date: new Date().toISOString().slice(0, 10), merchant: '', amount: '', account: '', category: '', description: '' })
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : 'Failed to create transaction.')
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   const months = monthOptions()
 
+  const activeFilters = [
+    month        ? { label: months.find(m => m.value === month)?.label ?? month, clear: () => setMonth('') } : null,
+    categoryFilter ? { label: categories.find(c => String(c.id) === categoryFilter)?.name ?? 'Category', clear: () => setCategoryFilter('') } : null,
+    accountFilter  ? { label: (accounts.find(a => String(a.id) === accountFilter)?.nickname || accounts.find(a => String(a.id) === accountFilter)?.name) ?? 'Account', clear: () => setAccountFilter('') } : null,
+    statusFilter !== 'all' ? { label: statusFilter[0].toUpperCase() + statusFilter.slice(1), clear: () => setStatusFilter('all') } : null,
+    debouncedSearch ? { label: `"${debouncedSearch}"`, clear: () => setSearch('') } : null,
+  ].filter(Boolean) as { label: string; clear: () => void }[]
+
   return (
     <div>
-      {/* Filters */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      {/* Filters row 1: title + dropdowns */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         <h1 className="text-sm font-medium text-neutral-300 mr-auto">Transactions</h1>
         {accounts.length > 1 && (
           <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)} className={selectCls + ' max-w-[10rem]'}>
             <option value="">All accounts</option>
             {accounts.map(a => (
               <option key={a.id} value={String(a.id)}>
-                {a.name}{a.last_four ? ` - ${a.last_four}` : ''}
+                {a.nickname || a.name}{a.last_four ? ` ···${a.last_four}` : ''}
               </option>
             ))}
           </select>
@@ -301,33 +364,123 @@ export default function TransactionsPage() {
           <option value="">All categories</option>
           {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
         </select>
+      </div>
+
+      {/* Filters row 2: search + add button (always own line) */}
+      <div className="flex items-center gap-2 mb-3">
         <input
           type="text"
           placeholder="Search merchant or notes..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className={selectCls + ' w-full sm:w-72'}
+          className={selectCls + ' flex-1'}
         />
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="px-3 py-1.5 bg-white text-neutral-900 text-xs font-semibold rounded hover:bg-neutral-100 transition-colors shrink-0"
+        >
+          + Add
+        </button>
       </div>
 
-      {/* Summary bar */}
-      {(
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5 mb-4 flex items-baseline justify-between">
-          <span className="text-xs text-neutral-500 flex items-center gap-1.5 flex-wrap">
-            <span>{count} transactions</span>
-            {[
-              month ? months.find(m => m.value === month)?.label : null,
-              categoryFilter ? categories.find(c => String(c.id) === categoryFilter)?.name : null,
-              accountFilter ? accounts.find(a => String(a.id) === accountFilter)?.name : null,
-              statusFilter !== 'all' ? statusFilter : null,
-              debouncedSearch ? `"${debouncedSearch}"` : null,
-            ].filter(Boolean).map((label, i) => (
-              <span key={i} className="px-1.5 py-0.5 bg-neutral-800 rounded text-neutral-400">{label}</span>
-            ))}
-          </span>
-          <span className="text-base font-semibold tabular-nums">${totalAmount.toFixed(2)}</span>
+      {/* Add transaction modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative bg-neutral-900 border border-neutral-800 rounded-xl p-5 w-full max-w-md space-y-3 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-sm font-semibold text-neutral-200">Add Transaction</h2>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-neutral-500">Date</label>
+                <input type="date" value={addForm.date} onChange={e => setAddForm(f => ({ ...f, date: e.target.value }))}
+                  className={selectCls + ' w-full'} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-neutral-500">Amount ($)</label>
+                <input type="number" step="0.01" min="0" placeholder="0.00" value={addForm.amount}
+                  onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))}
+                  className={selectCls + ' w-full'} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-neutral-500">Merchant</label>
+              <input type="text" placeholder="e.g. Venmo, Cash" value={addForm.merchant}
+                onChange={e => setAddForm(f => ({ ...f, merchant: e.target.value }))}
+                className={selectCls + ' w-full'} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-neutral-500">Account</label>
+                <select value={addForm.account} onChange={e => setAddForm(f => ({ ...f, account: e.target.value }))} className={selectCls + ' w-full'}>
+                  <option value="">Cash &amp; Other</option>
+                  {accounts.filter(a => a.account_type !== 'manual').map(a => (
+                    <option key={a.id} value={String(a.id)}>{a.nickname || a.name}{a.last_four ? ` ···${a.last_four}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-neutral-500">Category</label>
+                <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className={selectCls + ' w-full'}>
+                  <option value="">None</option>
+                  {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-neutral-500">Note (optional)</label>
+              <input type="text" placeholder="Add a note..." value={addForm.description}
+                onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddSubmit() }}
+                className={selectCls + ' w-full'} />
+            </div>
+
+            {addError && <p className="text-red-400 text-xs">{addError}</p>}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setShowAddModal(false)} className="px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleAddSubmit}
+                disabled={addSaving || !addForm.merchant || !addForm.amount}
+                className="px-4 py-1.5 bg-white text-neutral-900 text-xs font-semibold rounded hover:bg-neutral-100 disabled:opacity-40 transition-colors"
+              >
+                {addSaving ? '...' : 'Add'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+
+      {/* Summary bar */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5 mb-4 flex items-center gap-2 justify-between">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="text-xs text-neutral-500 shrink-0">{count} transactions</span>
+          {activeFilters.map((f, i) => (
+            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-800 border border-neutral-700/60 rounded-full text-xs text-neutral-300">
+              {f.label}
+              <button onClick={f.clear} className="text-neutral-500 hover:text-red-400 transition-colors leading-none ml-0.5">✕</button>
+            </span>
+          ))}
+          {activeFilters.length > 1 && (
+            <button
+              onClick={() => { setMonth(''); setCategoryFilter(''); setAccountFilter(''); setStatusFilter('all'); setSearch('') }}
+              className="text-xs text-neutral-600 hover:text-red-400 transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        <span className="text-base font-semibold tabular-nums shrink-0">${totalAmount.toFixed(2)}</span>
+      </div>
 
       {loading && <p className="text-neutral-600 text-sm">Loading...</p>}
       {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -346,6 +499,7 @@ export default function TransactionsPage() {
             onStartEdit={() => setEditingId(txn.id)}
             onClose={() => setEditingId(null)}
             onSaved={handleSaved}
+            onDeleted={id => setTransactions(prev => prev.filter(t => t.id !== id))}
             onCategoryCreated={addCategory}
           />
         ))}

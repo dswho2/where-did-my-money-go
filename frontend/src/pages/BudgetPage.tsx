@@ -378,7 +378,7 @@ export default function BudgetPage() {
 
           <div className="text-center">
             <p className="text-xs text-neutral-600 mb-0.5">Fixed</p>
-            <p className="text-xl font-bold tabular-nums text-red-400">
+            <p className="text-xl font-bold tabular-nums text-neutral-200">
               {fixedTotal > 0 ? fmt(fixedTotal) : '—'}
             </p>
             <p className="text-xs mt-0.5 invisible">·</p>
@@ -419,11 +419,11 @@ export default function BudgetPage() {
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Variable Spending</span>
           <span className={`text-sm tabular-nums text-right transition-opacity ${loadingActuals ? 'opacity-40' : ''}`}>
-            <span className={catActualTotal > 0 ? 'text-red-400 font-semibold' : 'text-neutral-600'}>
+            <span className={catActualTotal > catBudgetTotal && catBudgetTotal > 0 ? 'text-red-400 font-semibold' : catActualTotal > 0 ? 'text-neutral-400 font-semibold' : 'text-neutral-600'}>
               {catActualTotal > 0 ? fmt(catActualTotal) : '—'}
             </span>
             {catBudgetTotal > 0 && (
-              <span className="text-neutral-600 font-normal"> / {fmt(catBudgetTotal)} budgeted</span>
+              <span className={`font-normal ${catActualTotal > catBudgetTotal ? 'text-red-400' : 'text-neutral-400'}`}> / {fmt(catBudgetTotal)} budgeted</span>
             )}
           </span>
         </div>

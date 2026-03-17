@@ -101,6 +101,23 @@ export const updateTransaction = (id: number, data: Partial<Transaction>) =>
     body: JSON.stringify(data),
   })
 
+export const createTransaction = (data: {
+  account: number
+  date: string
+  amount: number
+  merchant: string
+  description?: string
+  category?: number | null
+  status?: string
+}) =>
+  request<Transaction>('/api/transactions/create/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const deleteTransaction = (id: number) =>
+  request<void>(`/api/transactions/${id}/`, { method: 'DELETE' })
+
 export const trackTransaction = (id: number) =>
   updateTransaction(id, { status: 'tracked' })
 

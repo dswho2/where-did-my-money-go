@@ -18,6 +18,7 @@ urlpatterns = [
     path('categories/', views.CategoryListCreateView.as_view()),
     path('categories/<int:pk>/', views.CategoryDetailView.as_view()),
     path('transactions/', views.TransactionListView.as_view()),
+    path('transactions/create/', views.transaction_create),
     path('transactions/<int:pk>/', views.TransactionDetailView.as_view()),
 
     # Teller sync

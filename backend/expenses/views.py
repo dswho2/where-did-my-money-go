@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Account, Category, DEFAULT_CATEGORIES, Enrollment, Transaction, UserBudgetConfig
+from .models import Account, Category, DEFAULT_CATEGORIES, DeviceToken, Enrollment, Transaction, UserBudgetConfig
 from .serializers import AccountSerializer, CategorySerializer, EnrollmentSerializer, TransactionSerializer
 from . import teller, categorizer
 
@@ -73,21 +73,21 @@ def auth_register(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def auth_login(request):
-    from rest_framework.authtoken.models import Token
     username = request.data.get('username', '')
     password = request.data.get('password', '')
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response({'error': 'Invalid credentials.'}, status=401)
-    token, _ = Token.objects.get_or_create(user=user)
-    return Response({'username': user.username, 'token': token.key})
+    key = DeviceToken.generate_key()
+    DeviceToken.objects.create(user=user, key=key)
+    return Response({'username': user.username, 'token': key})
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def auth_logout(request):
-    from rest_framework.authtoken.models import Token
-    Token.objects.filter(user=request.user).delete()
+    if hasattr(request.auth, 'delete'):
+        request.auth.delete()
     return Response(status=204)
 
 
@@ -287,6 +287,63 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 # Transactions
 # ---------------------------------------------------------------------------
 
+
+def _get_or_create_manual_account(user):
+    """Return (or create) the special manual-entry account for this user."""
+    enrollment, _ = Enrollment.objects.get_or_create(
+        access_token=f"manual_{user.id}",
+        defaults={'user': user, 'institution_name': 'Cash & Other'},
+    )
+    account, _ = Account.objects.update_or_create(
+        teller_id=f"manual_account_{user.id}",
+        defaults={
+            'enrollment': enrollment,
+            'name': 'Cash & Other',
+            'last_four': '',
+            'account_type': 'manual',
+            'tracked': True,
+        },
+    )
+    return account
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def transaction_create(request):
+    import uuid
+    account_id = request.data.get('account')
+    if account_id:
+        try:
+            account = Account.objects.get(pk=account_id, enrollment__user=request.user)
+        except (Account.DoesNotExist, ValueError, TypeError):
+            return Response({'error': 'Invalid account.'}, status=400)
+    else:
+        account = _get_or_create_manual_account(request.user)
+
+    date_val = request.data.get('date', '').strip()
+    amount_val = request.data.get('amount')
+    merchant_val = request.data.get('merchant', '').strip()
+    if not date_val or amount_val is None or not merchant_val:
+        return Response({'error': 'date, amount, and merchant are required.'}, status=400)
+
+    status_val = request.data.get('status', Transaction.TRACKED)
+    if status_val not in (Transaction.UNREVIEWED, Transaction.TRACKED, Transaction.EXCLUDED):
+        status_val = Transaction.TRACKED
+
+    txn = Transaction.objects.create(
+        account=account,
+        teller_id=f"manual_{uuid.uuid4().hex}",
+        date=date_val,
+        amount=amount_val,
+        merchant=merchant_val,
+        description=request.data.get('description', ''),
+        category_id=request.data.get('category') or None,
+        status=status_val,
+    )
+    fresh = Transaction.objects.select_related('account', 'account__enrollment', 'category').get(pk=txn.pk)
+    return Response(TransactionSerializer(fresh).data, status=201)
+
+
 class TransactionListView(generics.ListAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
@@ -366,10 +423,10 @@ class TransactionListView(generics.ListAPIView):
         })
 
 
-class TransactionDetailView(generics.UpdateAPIView):
+class TransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['patch']
+    http_method_names = ['patch', 'delete']
 
     def get_queryset(self):
         return Transaction.objects.filter(account__enrollment__user=self.request.user)

@@ -1,5 +1,22 @@
+import binascii
+import os
+
 from django.conf import settings
 from django.db import models
+
+
+class DeviceToken(models.Model):
+    """Per-device auth token — multiple devices can be logged in simultaneously."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='device_tokens')
+    key = models.CharField(max_length=40, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def generate_key(cls):
+        return binascii.hexlify(os.urandom(20)).decode()
+
+    def __str__(self):
+        return f"{self.user} — {self.key[:8]}…"
 
 
 class Enrollment(models.Model):
