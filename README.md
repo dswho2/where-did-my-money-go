@@ -26,6 +26,8 @@ The home page gives a monthly spending snapshot:
 - **Days remaining** in the current month
 - Month navigation (prev/next arrows and a month picker)
 
+![homepage](frontend/public/home.png)
+
 ### Review Page
 
 A card stack for processing new transactions one at a time:
@@ -34,9 +36,12 @@ A card stack for processing new transactions one at a time:
 - Each card shows: date, merchant name, amount, and which account it came from
 - Assign a category inline via a dropdown (or create a new one on the fly)
 - Add a note/description to any transaction
-- Track (right) or Exclude (left) with swipe animations
+- Track or Exclude the transaction — both animate the card off screen
+- Skip — moves the current card to the back of the queue with an animation, so you can come back to it later
 - When you categorize a merchant, the same category is automatically propagated to other unreviewed transactions from that merchant in the queue
 - Queue count shown so you know how many are left
+
+![reviewpage](frontend/public/review.png)
 
 ### Transactions Page
 
@@ -48,6 +53,8 @@ A full searchable, filterable list of all transactions:
 - Pagination (50 per page by default, configurable up to 500)
 - Shows amount in green for credits, normal for debits
 - Shows account name and last 4 digits for each transaction
+
+![transactionspage](frontend/public/transactions.png)
 
 ### Accounts Page
 
@@ -73,6 +80,8 @@ Visual spending analysis with charts:
 - **Click any bar** to open a drilldown showing the individual transactions for that month
 - Grand total and monthly average shown below the chart
 
+![spendingspage](frontend/public/spending.png)
+
 ### Budget Page
 
 Full budget planning and tracking:
@@ -86,6 +95,8 @@ Full budget planning and tracking:
 - **Actual vs. budgeted** — shows real spending from the current month alongside your targets
 - Month navigation to view and compare historical months
 - All budget settings are auto-saved to the backend with an 800ms debounce
+
+![budgetpage](frontend/public/budget.png)
 
 ### Categories Page
 
@@ -117,7 +128,7 @@ Manual sync is also available via the Sync button on the Accounts page.
 
 ## Demo Account
 
-A read-only demo account is included for showing the app to others without exposing real data.
+A read-only demo account is included for showing the app to others without exposing real data. Images in this `README` are all with data from the demo account.
 
 **Credentials:** `username: sample` / `password: sample`
 
