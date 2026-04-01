@@ -175,6 +175,8 @@ def enrollment_list_create(request):
         except Exception:
             continue
         for t in txns:
+            if t.get('status') != 'posted':
+                continue
             txn, created_txn = Transaction.objects.get_or_create(
                 teller_id=t['id'],
                 defaults={
@@ -500,6 +502,11 @@ def _sync_account(enrollment, remote_acct) -> int:
         remote_txns = teller.get_transactions_since(enrollment.access_token, remote_acct['id'], since)
     except Exception:
         return 0
+
+    if not remote_txns:
+        return 0
+
+    remote_txns = [t for t in remote_txns if t.get('status') == 'posted']
 
     if not remote_txns:
         return 0
